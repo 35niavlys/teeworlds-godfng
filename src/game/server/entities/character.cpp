@@ -709,15 +709,16 @@ void CCharacter::Tick()
 		m_InvisibleTick = 0;
 		new CShield(&GameServer()->m_World, m_Pos, GetPlayer()->GetCID(), 1); 
 	}
-	
-	if (m_Core.m_HookedPlayer != -1 && GameServer()->GetPlayerChar(m_Core.m_HookedPlayer)->m_Invisible)
+
+	if(m_LastHookedPlayer != -1)
 	{
-		GameServer()->m_apPlayers[m_Core.m_HookedPlayer]->GetCharacter()->m_InvisibleTick = 0;
-		GameServer()->m_apPlayers[m_Core.m_HookedPlayer]->GetCharacter()->m_Visible = true;
+		CCharacter *pChar = GameServer()->GetPlayerChar(m_LastHookedPlayer);
+		if(pChar && pChar->m_Invisible) {
+			pChar->m_InvisibleTick = 0;
+			pChar->m_Visible = true;
+		}
 	}
-	
-	if(m_Invisible && (m_Core.m_HookedPlayer != -1 || m_Input.m_Hook ))
-	{
+	if(m_Invisible && (m_LastHookedPlayer != -1 || m_Input.m_Hook)) {
 		m_InvisibleTick = 0;
 		m_Visible = true;	
 	}
