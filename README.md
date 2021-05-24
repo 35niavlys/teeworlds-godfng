@@ -1,5 +1,5 @@
 # teeworlds-godfng
-Fork of https://github.com/Jupeyy/teeworlds-fng2-mod
+Fork of https://github.com/Jupeyy/teeworlds-fng2-mod and base on the idea of https://github.com/Schwertspize/speedfng
 
 Add rewards when a player is on a killing spree
 
