@@ -65,7 +65,7 @@ void CPickup::Tick()
 				break;
 
 			case POWERUP_WEAPON:
-				if(m_Subtype >= 0 && m_Subtype < NUM_WEAPONS)
+				if(m_Subtype >= 0 && m_Subtype < NUM_WEAPONS && pChr->m_GrenadeLauncher)
 				{
 					if(pChr->GiveWeapon(m_Subtype, 10))
 					{
@@ -78,8 +78,8 @@ void CPickup::Tick()
 						else if(m_Subtype == WEAPON_RIFLE)
 							GameServer()->CreateSound(m_Pos, SOUND_PICKUP_SHOTGUN);
 
-						if(pChr->GetPlayer())
-							GameServer()->SendWeaponPickup(pChr->GetPlayer()->GetCID(), m_Subtype);
+						// if(pChr->GetPlayer())
+						// 	GameServer()->SendWeaponPickup(pChr->GetPlayer()->GetCID(), m_Subtype);
 					}
 				}
 				break;

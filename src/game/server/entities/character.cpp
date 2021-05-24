@@ -9,6 +9,7 @@
 #include "laser.h"
 #include "projectile.h"
 #include "../fng2define.h"
+#include "shield.h"
 
 //input count
 struct CInputCount
@@ -46,7 +47,6 @@ CCharacter::CCharacter(CGameWorld *pWorld)
 	m_ProximityRadius = ms_PhysSize;
 	m_Health = 0;
 	m_Armor = 0;
-	m_Freeze.m_ActivationTick = 0;
 
 	m_InvincibleTick = 0;
 	m_Killer.m_KillerID = -1;
@@ -60,8 +60,6 @@ void CCharacter::Reset()
 
 bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 {
-	m_Freeze.m_ActivationTick = 0;
-
 	m_Killer.m_KillerID = -1;
 	m_Killer.m_uiKillerHookTicks = 0;
 
@@ -101,6 +99,23 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 
 	m_InvincibleTick = Server()->TickSpeed()*0.35f;
 	m_SpawnTick = Server()->Tick();
+
+	m_MoltenAt= -1;
+	m_MoltenByHammer = false;
+	// m_FrozenBy = -1;
+	
+	m_InvisibleTick = 0;
+	m_Visible = true;
+
+	m_Spree = 0;
+	m_HammerFreeze = false;
+	m_HammerForce = false;
+	m_GrenadeLauncher = false;
+	m_JetPack = false;
+	m_SpeedRunner = false;
+	m_RifleSpread = false;
+	m_Invisible = false;
+	m_TeamProtect = false;
 
 	return true;
 }
@@ -151,7 +166,7 @@ bool CCharacter::IsGrounded()
 void CCharacter::HandleFreeze()
 {
 	//we basically freeze the first tick, after we actually got shot, so all input for all players is fair(pumpnetwork is after ontick)
-	if(m_Freeze.m_ActivationTick != 0 && m_Freeze.m_ActivationTick != Server()->Tick() && m_ActiveWeapon != WEAPON_NINJA) {
+	if(m_Core.m_Freeze.m_ActivationTick != 0 && m_Core.m_Freeze.m_ActivationTick != Server()->Tick() && m_ActiveWeapon != WEAPON_NINJA) {
 		//do actual freezing
 		m_ActiveWeapon = WEAPON_NINJA;
 		ResetInput();
@@ -161,11 +176,11 @@ void CCharacter::HandleFreeze()
 		return;
 
 
-	if ((Server()->Tick() - m_Freeze.m_ActivationTick) % Server()->TickSpeed() == 0) {
-		GameServer()->CreateDamageInd(m_Pos, 0, (m_Freeze.m_Duration - (Server()->Tick() - m_Freeze.m_ActivationTick) / Server()->TickSpeed()), m_pPlayer->GetTeam(), m_pPlayer->GetCID());
+	if ((Server()->Tick() - m_Core.m_Freeze.m_ActivationTick) % Server()->TickSpeed() == 0) {
+		GameServer()->CreateDamageInd(m_Pos, 0, (m_Core.m_Freeze.m_Duration - (Server()->Tick() - m_Core.m_Freeze.m_ActivationTick) / Server()->TickSpeed()), m_pPlayer->GetTeam(), m_pPlayer->GetCID());
 	}
 
-	if ((Server()->Tick() - m_Freeze.m_ActivationTick) > (m_Freeze.m_Duration * Server()->TickSpeed()))
+	if ((Server()->Tick() - m_Core.m_Freeze.m_ActivationTick) > (m_Core.m_Freeze.m_Duration * Server()->TickSpeed()))
 	{
 		Unfreeze(-1);
 
@@ -183,7 +198,7 @@ void CCharacter::HandleFreeze()
 void CCharacter::DoWeaponSwitch()
 {
 	// make sure we can switch
-	if(m_ReloadTimer != 0 || m_QueuedWeapon == -1)
+	if(m_QueuedWeapon == -1)
 		return;
 
 	// switch Weapon
@@ -232,12 +247,12 @@ void CCharacter::HandleWeaponSwitch()
 }
 
 bool CCharacter::IsFrozen(){
-	return m_Freeze.m_ActivationTick != 0;
+	return m_Core.m_Freeze.m_ActivationTick != 0;
 }
 
 void CCharacter::FireWeapon()
 {
-	if(m_ReloadTimer != 0 || (IsFrozen() && m_Freeze.m_ActivationTick != Server()->Tick()))
+	if(m_ReloadTimer[m_ActiveWeapon] != 0 || (IsFrozen() && m_Core.m_Freeze.m_ActivationTick != Server()->Tick()))
 		return;
 
 	DoWeaponSwitch();
@@ -263,7 +278,7 @@ void CCharacter::FireWeapon()
 	if(!m_aWeapons[m_ActiveWeapon].m_Ammo)
 	{
 		// 125ms is a magical limit of how fast a human can click
-		m_ReloadTimer = 125 * Server()->TickSpeed() / 1000;
+		m_ReloadTimer[m_ActiveWeapon] = 125 * Server()->TickSpeed() / 1000;
 		if(m_LastNoAmmoSound+Server()->TickSpeed() <= Server()->Tick())
 		{
 			GameServer()->CreateSound(m_Pos, SOUND_WEAPON_NOAMMO);
@@ -275,6 +290,12 @@ void CCharacter::FireWeapon()
 	vec2 ProjStartPos = m_Pos+Direction*m_ProximityRadius*0.75f;
 
 	int WeaponFireDelay = g_pData->m_Weapons.m_aId[m_ActiveWeapon].m_Firedelay * Server()->TickSpeed() / 1000;
+
+	if(m_Invisible)
+	{
+		m_InvisibleTick = 0;
+		m_Visible = true;	
+	}
 
 	switch(m_ActiveWeapon)
 	{
@@ -306,7 +327,7 @@ void CCharacter::FireWeapon()
 
 			// if we Hit anything, we have to wait for the reload
 			if(Hits)
-				m_ReloadTimer = Server()->TickSpeed()/3;
+				m_ReloadTimer[m_ActiveWeapon] = Server()->TickSpeed()/3;
 
 		} break;
 
@@ -361,7 +382,16 @@ void CCharacter::FireWeapon()
 		case WEAPON_RIFLE:
 		{
 			++m_pPlayer->m_Stats.m_Shots;
-			new CLaser(GameWorld(), m_Pos, Direction, GameServer()->Tuning()->m_LaserReach, m_pPlayer->GetCID());
+			if(m_RifleSpread)
+			{
+				for(int i = 0; i <= 1; ++i)
+				{
+					float a = GetAngle(Direction) + rand() * i;
+					new CLaser(GameWorld(), m_Pos, vec2(cosf(a), sinf(a)), GameServer()->Tuning()->m_LaserReach, m_pPlayer->GetCID());
+				}
+			}
+			else
+				new CLaser(GameWorld(), m_Pos, Direction, GameServer()->Tuning()->m_LaserReach, m_pPlayer->GetCID());
 			GameServer()->CreateSound(m_Pos, SOUND_RIFLE_FIRE);
 			//WeaponFireDelay = GameServer()->Tuning()->m_LaserFireDelay * Server()->TickSpeed() / 1000;
 		} break;
@@ -373,20 +403,20 @@ void CCharacter::FireWeapon()
 	}
 
 	m_AttackTick = Server()->Tick();
-
+	
 	if(m_aWeapons[m_ActiveWeapon].m_Ammo > 0) // -1 == unlimited
 		m_aWeapons[m_ActiveWeapon].m_Ammo--;
 
-	if(!m_ReloadTimer)
-		m_ReloadTimer = WeaponFireDelay;
+	if(!m_ReloadTimer[m_ActiveWeapon])
+		m_ReloadTimer[m_ActiveWeapon] = WeaponFireDelay;
 }
 
 void CCharacter::HandleWeapons()
 {
 	// check reload timer
-	if(m_ReloadTimer)
+	if(m_ReloadTimer[m_ActiveWeapon])
 	{
-		m_ReloadTimer--;
+		m_ReloadTimer[m_ActiveWeapon]--;
 		return;
 	}
 
@@ -398,7 +428,7 @@ void CCharacter::HandleWeapons()
 	if(AmmoRegenTime)
 	{
 		// If equipped and not active, regen ammo?
-		if (m_ReloadTimer <= 0)
+		if (m_ReloadTimer[m_ActiveWeapon] <= 0)
 		{
 			if (m_aWeapons[m_ActiveWeapon].m_AmmoRegenStart < 0)
 				m_aWeapons[m_ActiveWeapon].m_AmmoRegenStart = Server()->Tick();
@@ -432,8 +462,10 @@ bool CCharacter::GiveWeapon(int Weapon, int Ammo)
 
 void CCharacter::Freeze(int TimeInSec) {
 	if(!IsFrozen())m_LastWeapon = m_ActiveWeapon;
-	m_Freeze.m_ActivationTick = Server()->Tick();
-	m_Freeze.m_Duration = TimeInSec;
+	m_MoltenAt= -1;
+	m_MoltenByHammer = false;
+	m_Core.m_Freeze.m_ActivationTick = Server()->Tick();
+	m_Core.m_Freeze.m_Duration = TimeInSec;
 	
 	if(g_Config.m_SvSmoothFreezeMode)
 		GameServer()->SendFakeTuningParams(m_pPlayer->GetCID());
@@ -442,7 +474,7 @@ void CCharacter::Freeze(int TimeInSec) {
 void CCharacter::Unfreeze(int pPlayerID) {
 	//Set Weapon to old one, and unfreeze
 	m_ActiveWeapon = m_LastWeapon;
-	m_Freeze.m_ActivationTick = 0;
+	m_Core.m_Freeze.m_ActivationTick = 0;
 	m_Killer.m_uiKillerHookTicks = 0;
 	m_Killer.m_KillerID = m_pPlayer->GetCID();
 
@@ -459,6 +491,8 @@ void CCharacter::Unfreeze(int pPlayerID) {
 		
 	if(g_Config.m_SvSmoothFreezeMode)
 		GameServer()->SendTuningParams(m_pPlayer->GetCID());
+	
+	m_Core.m_ProtectedBy = false;
 }
 
 void CCharacter::SetEmote(int Emote, int Tick)
@@ -553,6 +587,89 @@ void CCharacter::Tick()
 
 	if (!m_Alive)
 		return;
+	
+	if(m_GrenadeLauncher && !m_aWeapons[WEAPON_GRENADE].m_Got) {
+		if(GiveWeapon(WEAPON_GRENADE, 10))
+			GameServer()->CreateSound(m_Pos, SOUND_PICKUP_GRENADE);
+	}
+
+	if(m_Invisible)
+	{
+		for(int i = 0; i < MAX_CLIENTS; i++)
+		{
+			//CCharacterCore *pCharCore = m_pWorld->m_apCharacters[i];
+			CCharacter *pCharCore = GameServer()->GetPlayerChar(i);
+			if(!pCharCore)
+				continue;
+			
+			//player *p = (player*)ent;
+			if(pCharCore == this) // || !(p->flags&FLAG_ALIVE)
+				continue; // make sure that we don't nudge our self
+
+			// handle player <-> player collision
+			float Distance = distance(m_Pos, pCharCore->m_Pos);
+			vec2 Dir = normalize(m_Pos - pCharCore->m_Pos);
+			if(Distance < 28.0f*1.25f && Distance > 0.0f)
+			{
+				//GameServer()->SendChatTarget(-1, "test");
+				m_Visible = true;
+				m_InvisibleTick = 0;
+				new CShield(&GameServer()->m_World, m_Pos, GetPlayer()->GetCID(), 1); 
+			}
+		}
+	}
+	
+	if(m_JetPack && m_Core.m_Freeze.m_ActivationTick <= 0)
+	{
+	    vec2 Direction = normalize(vec2(0, 10.0f));
+	    if(!(m_Core.m_Jumped&1))
+		{
+	        if(m_Input.m_Jump)
+			{
+	            /*TakeDamage(Direction * -1.0f * (400.0f / 100.0f / 6.11f), 0, m_pPlayer->GetCID(), m_ActiveWeapon);*/ // fix botdetect bug
+				m_Core.m_Vel += Direction * -1.5f * (400.0f / 100.0f / 6.11f);
+				
+                if(Server()->Tick() % (1 * Server()->TickSpeed() / 10) == 0)
+				{
+					if(m_Invisible)
+					{
+						m_Visible = true;
+						m_InvisibleTick = 0;
+					}
+					GameServer()->CreateSound(m_Core.m_Pos, SOUND_WEAPON_SWITCH);
+					GameServer()->CreateDamageInd(
+						m_Core.m_Vel.y < 0 ?
+							m_Core.m_Pos - vec2((m_Input.m_Direction != 0 ? (m_Input.m_Direction > 0 ? 28 : -28) : 0), -28) :
+							m_Core.m_Pos - vec2((m_Input.m_Direction != 0 ? (m_Input.m_Direction > 0 ? 28 : -28) : 0), 28),
+						m_Core.m_Vel.y < 0 ? 0.3f : 60.0f,
+						(m_Core.m_Freeze.m_Duration - (Server()->Tick() - m_Core.m_Freeze.m_ActivationTick) / Server()->TickSpeed()),
+						m_pPlayer->GetTeam(),
+						m_pPlayer->GetCID()
+					);
+				}
+			}
+		}
+	}
+	
+	if(m_SpeedRunner && m_Core.m_Freeze.m_ActivationTick <= 0)
+    {
+        const float MaxSpeed = IsGrounded() ? GameServer()->m_World.m_Core.m_Tuning.m_GroundControlSpeed * 3 : 0.0f;
+        const float Accel = IsGrounded() ? GameServer()->m_World.m_Core.m_Tuning.m_GroundControlAccel : 0.0f;
+        if(m_Input.m_Direction == 1)
+            m_Core.m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Core.m_Vel.x, Accel);
+        else if(m_Input.m_Direction == -1)
+            m_Core.m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Core.m_Vel.x, -Accel);
+    }
+	
+	if(m_Core.m_ProtectedBy && m_Core.m_Freeze.m_ActivationTick > 0)
+	{
+		const float MaxSpeed = IsGrounded() ? GameServer()->m_World.m_Core.m_Tuning.m_GroundControlSpeed * 2 : GameServer()->m_World.m_Core.m_Tuning.m_AirControlSpeed * 4;
+        const float Accel = IsGrounded() ? GameServer()->m_World.m_Core.m_Tuning.m_GroundControlAccel : GameServer()->m_World.m_Core.m_Tuning.m_AirControlAccel;
+        if(m_Input.m_Direction == 1)
+            m_Core.m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Core.m_Vel.x, Accel);
+        else if(m_Input.m_Direction == -1)
+            m_Core.m_Vel.x = SaturatedAdd(-MaxSpeed, MaxSpeed, m_Core.m_Vel.x, -Accel);
+	}
 
 	// handle death-tiles and leaving gamelayer
 	if(GameServer()->Collision()->GetCollisionAt(m_Pos.x+m_ProximityRadius/3.f, m_Pos.y-m_ProximityRadius/3.f)&CCollision::COLFLAG_DEATH ||
@@ -581,6 +698,29 @@ void CCharacter::Tick()
 
 	// Previnput
 	m_PrevInput = m_Input;
+	
+	//Invisible
+	if(m_Invisible && m_Visible)
+		m_InvisibleTick = m_InvisibleTick + 1;
+	
+	if(m_Invisible && m_InvisibleTick >= 100 && !IsFrozen())
+	{
+		m_Visible = false;
+		m_InvisibleTick = 0;
+		new CShield(&GameServer()->m_World, m_Pos, GetPlayer()->GetCID(), 1); 
+	}
+	
+	if (m_Core.m_HookedPlayer != -1 && GameServer()->GetPlayerChar(m_Core.m_HookedPlayer)->m_Invisible)
+	{
+		GameServer()->m_apPlayers[m_Core.m_HookedPlayer]->GetCharacter()->m_InvisibleTick = 0;
+		GameServer()->m_apPlayers[m_Core.m_HookedPlayer]->GetCharacter()->m_Visible = true;
+	}
+	
+	if(m_Invisible && (m_Core.m_HookedPlayer != -1 || m_Input.m_Hook ))
+	{
+		m_InvisibleTick = 0;
+		m_Visible = true;	
+	}
 
 	if (m_LastHookedPlayer != -1 && g_Config.m_SvKillTakeOverTime != -1) {
 		CPlayer *pPlayer = GameServer()->m_apPlayers[m_LastHookedPlayer];
@@ -703,13 +843,13 @@ void CCharacter::TickDefered()
 	m_pPlayer->m_Stats.m_NumTeeCollisions += m_Core.m_CoreStats.m_NumTeeCollisions;
 	mem_zero(&m_Core.m_CoreStats, sizeof(m_Core.m_CoreStats));
 	
-	if(IsFrozen() && m_Freeze.m_ActivationTick != Server()->Tick()) ++m_pPlayer->m_Stats.m_NumFreezeTicks;
+	if(IsFrozen() && m_Core.m_Freeze.m_ActivationTick != Server()->Tick()) ++m_pPlayer->m_Stats.m_NumFreezeTicks;
 }
 
 void CCharacter::TickPaused()
 {
 	++m_AttackTick;
-	if(IsFrozen()) ++m_Freeze.m_ActivationTick;
+	if(IsFrozen()) ++m_Core.m_Freeze.m_ActivationTick;
 	++m_ReckoningTick;
 	if(m_LastAction != -1)
 		++m_LastAction;
@@ -761,6 +901,8 @@ void CCharacter::Die(int Killer, int Weapon)
 	if(g_Config.m_SvSmoothFreezeMode)
 		GameServer()->SendTuningParams(m_pPlayer->GetCID());
 
+	EndSpree(Killer);
+
 	// this is for auto respawn after 3 secs
 	m_pPlayer->m_DieTick = Server()->Tick();
 
@@ -770,7 +912,7 @@ void CCharacter::Die(int Killer, int Weapon)
 	GameServer()->CreateDeath(m_Pos, m_pPlayer->GetCID());
 }
 
-void CCharacter::DieSpikes(int pPlayerID, int spikes_flag) {
+void CCharacter::DieSpikes(int pKillerID, int spikes_flag) {
 	int Weapon = 0;
 
 
@@ -782,31 +924,37 @@ void CCharacter::DieSpikes(int pPlayerID, int spikes_flag) {
 	else if (spikes_flag&CCollision::COLFLAG_SPIKE_PURPLE)	Weapon = WEAPON_SPIKE_PURPLE;
 
 	// if the player leaves the game, he will be nullptr and we handle it like a selfkill
-	if (pPlayerID == -1 || GameServer()->m_apPlayers[pPlayerID] == 0) pPlayerID = m_pPlayer->GetCID();
+	if (pKillerID == -1 || GameServer()->m_apPlayers[pKillerID] == 0) pKillerID = m_pPlayer->GetCID();
 
-	if (!IsFrozen() || pPlayerID == m_pPlayer->GetCID()) Weapon = WEAPON_WORLD;
+	EndSpree(pKillerID);
 
-	int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[pPlayerID], Weapon);
+	if (!IsFrozen() || pKillerID == m_pPlayer->GetCID()) Weapon = WEAPON_WORLD;
+
+	int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[pKillerID], Weapon);
 
 	//if needed the mod can tell the character to not die with modespecial = -1
 	if(ModeSpecial >= 0){
 		char aBuf[256];
 		str_format(aBuf, sizeof(aBuf), "kill spikes killer='%d:%s' victim='%d:%s' weapon=%d special=%d",
-			pPlayerID, Server()->ClientName(pPlayerID),
+			pKillerID, Server()->ClientName(pKillerID),
 			m_pPlayer->GetCID(), Server()->ClientName(m_pPlayer->GetCID()), Weapon, ModeSpecial);
 		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
-		if (IsFrozen() && pPlayerID != m_pPlayer->GetCID()) {
+		if(IsFrozen() && pKillerID != m_pPlayer->GetCID())
+		{
+			if (GameServer()->GetPlayerChar(pKillerID))
+				GameServer()->GetPlayerChar(pKillerID)->AddSpree();
+
 			// send the kill message
 			CNetMsg_Sv_KillMsg Msg;
-			Msg.m_Killer = pPlayerID;
+			Msg.m_Killer = pKillerID;
 			Msg.m_Victim = m_pPlayer->GetCID();
 			Msg.m_Weapon = WEAPON_NINJA;
 			Msg.m_ModeSpecial = ModeSpecial;
 			GameServer()->SendPackMsg(&Msg, MSGFLAG_VITAL);
 
-			if (GameServer()->m_pController->IsTeamplay() && IsFalseSpike(GameServer()->m_apPlayers[pPlayerID]->GetTeam(), spikes_flag)) {
-				CCharacter* pKiller = ((CPlayer*)GameServer()->m_apPlayers[pPlayerID])->GetCharacter();
+			if (GameServer()->m_pController->IsTeamplay() && IsFalseSpike(GameServer()->m_apPlayers[pKillerID]->GetTeam(), spikes_flag)) {
+				CCharacter* pKiller = ((CPlayer*)GameServer()->m_apPlayers[pKillerID])->GetCharacter();
 				if (pKiller && !pKiller->IsFrozen()) {
 					pKiller->Freeze(g_Config.m_SvFalseSpikeFreeze);
 					GameServer()->CreateSound(pKiller->m_Pos, SOUND_TEE_CRY);
@@ -814,17 +962,17 @@ void CCharacter::DieSpikes(int pPlayerID, int spikes_flag) {
 			}
 			else {
 				//set attacker's face to happy (taunt!)
-				CCharacter* pKiller = ((CPlayer*)GameServer()->m_apPlayers[pPlayerID])->GetCharacter();
+				CCharacter* pKiller = ((CPlayer*)GameServer()->m_apPlayers[pKillerID])->GetCharacter();
 				if (pKiller)
 				{
 					pKiller->SetEmote(EMOTE_HAPPY, Server()->Tick() + Server()->TickSpeed());
 				}
 
 				if (GameServer()->m_pController->IsTeamplay()) {
-					GameServer()->CreateSoundTeam(m_Pos, SOUND_CTF_CAPTURE, GameServer()->m_apPlayers[pPlayerID]->GetTeam(), pPlayerID);
+					GameServer()->CreateSoundTeam(m_Pos, SOUND_CTF_CAPTURE, GameServer()->m_apPlayers[pKillerID]->GetTeam(), pKillerID);
 					GameServer()->CreateSoundTeam(m_Pos, SOUND_CTF_GRAB_PL, m_pPlayer->GetTeam(), m_pPlayer->GetCID());
 				} else {
-					GameServer()->CreateSoundGlobal(SOUND_CTF_CAPTURE, pPlayerID);
+					GameServer()->CreateSoundGlobal(SOUND_CTF_CAPTURE, pKillerID);
 					GameServer()->CreateSoundGlobal(SOUND_CTF_GRAB_PL, m_pPlayer->GetCID());			
 				}
 			}
@@ -894,6 +1042,10 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 
 	CPlayer *pPlayer = GameServer()->m_apPlayers[From];
 
+	if(m_Invisible) {
+		m_Visible = true;
+		m_InvisibleTick = 0;
+	}
 	if ((Weapon == WEAPON_RIFLE || Weapon == WEAPON_GRENADE) && !IsFrozen()) {
 		if ((GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From) && !g_Config.m_SvTeamdamage) || From == m_pPlayer->GetCID()) {
 			if (From == m_pPlayer->GetCID()) {
@@ -947,21 +1099,29 @@ void CCharacter::TakeHammerHit(CCharacter* pFrom)
 		Push.x *= g_Config.m_SvHammerScaleX*0.01f;
 		Push.y *= g_Config.m_SvHammerScaleY*0.01f;
 	}
+	if (pFrom->m_HammerForce)
+		Push *= 1.5f;
 
 	m_Core.m_Vel += Push;
 
 	CPlayer* pPlayer = pFrom->GetPlayer();
-	if (pPlayer && (GameServer()->m_pController->IsTeamplay() && pPlayer->GetTeam() == m_pPlayer->GetTeam())) {
-		m_Killer.m_uiKillerHookTicks = 0;
-		m_Killer.m_KillerID = m_pPlayer->GetCID();
-		if (IsFrozen()) {
-			if (((float)m_Freeze.m_Duration - (float)(Server()->Tick() - m_Freeze.m_ActivationTick - 1) / (float)Server()->TickSpeed()) < 3.f) {
-				Unfreeze(pPlayer->GetCID());
+	if (pPlayer) {
+		if(GameServer()->m_pController->IsTeamplay() && pPlayer->GetTeam() == m_pPlayer->GetTeam()) {
+			m_Killer.m_uiKillerHookTicks = 0;
+			m_Killer.m_KillerID = m_pPlayer->GetCID();
+			if (IsFrozen()) {
+				if (((float)m_Core.m_Freeze.m_Duration - (float)(Server()->Tick() - m_Core.m_Freeze.m_ActivationTick - 1) / (float)Server()->TickSpeed()) < 3.f) {
+					Unfreeze(pPlayer->GetCID());
+					m_MoltenAt = Server()->Tick();
+					m_MoltenByHammer = true;
+				}
+				else {
+					m_Core.m_Freeze.m_ActivationTick -= Server()->TickSpeed() * 3;
+				}
+				++pPlayer->m_Stats.m_UnfreezingHammerHits;
 			}
-			else {
-				m_Freeze.m_ActivationTick -= Server()->TickSpeed() * 3;
-			}
-			++pPlayer->m_Stats.m_UnfreezingHammerHits;
+		} else if(pFrom->m_HammerFreeze && !IsFrozen()) {
+			Freeze(g_Config.m_SvHitFreeze);
 		}
 	}
 	else {
@@ -975,8 +1135,12 @@ void CCharacter::Snap(int SnappingClient)
 	float Distance = INFINITY;
 	if(NetworkClipped(SnappingClient, Distance))
 		return;
-
+	
 	int ClientID = m_pPlayer->GetCID();
+
+	if(m_Invisible && ClientID != SnappingClient && !m_Visible && GameServer()->m_apPlayers[SnappingClient]->GetTeam() != TEAM_SPECTATORS && !IsFrozen() /* && !GetPlayer()->m_Paused*/)
+		return;
+
 	if(SnappingClient > -1 && GameServer()->m_apPlayers[SnappingClient] && !GameServer()->m_apPlayers[SnappingClient]->AddSnappingClient(m_pPlayer->GetCID(), Distance, GameServer()->m_apPlayers[SnappingClient]->m_ClientVersion, ClientID)) return;
 
 	CNetObj_Character *pCharacter = static_cast<CNetObj_Character *>(Server()->SnapNewItem(NETOBJTYPE_CHARACTER, ClientID, sizeof(CNetObj_Character)));
@@ -1066,4 +1230,110 @@ int CCharacter::NetworkClipped(int SnappingClient, float& Distance, vec2 CheckPo
 	if (distance(GameServer()->m_apPlayers[SnappingClient]->m_ViewPos, CheckPos) > 1100.0f)
 		return 1;
 	return 0;
+}
+
+
+void CCharacter::AddSpree()
+{
+	m_Spree++;
+	const int NumMsg = 6;
+	char aBuf[128];
+
+	if(m_Spree % g_Config.m_SvKillingSpreeKills == 0)
+	{
+		static const char aaSpreeMsg[NumMsg][32] = {
+			"is on a killing spree",
+			"is on a rampage",
+			"is dominating",
+			"is unstoppable",
+			"is the tee to kill",
+			"is godlike"
+		};
+
+		int bigman = min(m_Spree / g_Config.m_SvKillingSpreeKills, NumMsg) - 1;
+
+		str_format(aBuf, sizeof(aBuf), "%s %s with %d kills!", Server()->ClientName(m_pPlayer->GetCID()), aaSpreeMsg[bigman], m_Spree);
+		GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
+
+		if(m_Spree == g_Config.m_SvKillingSpreeKills * 1) {
+			m_HammerFreeze = true;
+			GameServer()->SendBroadcast("you got the killingspree award [IceHammer]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 2) {
+			m_HammerForce = true;
+			GameServer()->SendBroadcast("you got the killingspree award [BigHammer]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 3) {
+			m_GrenadeLauncher = true;
+			GameServer()->SendBroadcast("you got the killingspree award [Grenade]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 4) {
+			m_JetPack = true;
+			GameServer()->SendBroadcast("you got the killingspree award [JetPack]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 5) {
+			m_SpeedRunner = true;
+			GameServer()->SendBroadcast("you got the killingspree award [MaxSpeed]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 6) {
+			m_RifleSpread = true;
+			GameServer()->SendBroadcast("you got the killingspree award [Laser2x]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 7) {
+			m_Core.m_Protected = true;
+			GameServer()->SendBroadcast("you got the killingspree award [Protection]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 8) {
+			m_Invisible = true;
+			GameServer()->SendBroadcast("you got the killingspree award [Invisibility]", m_pPlayer->GetCID());
+		}
+
+		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 9) {
+			m_TeamProtect = true;
+			GameServer()->SendBroadcast("you got the last killingspree award [TeamProtection]", m_pPlayer->GetCID());
+		}
+	}
+}
+
+void CCharacter::EndSpree(int Killer)
+{
+	if(m_Spree >= g_Config.m_SvKillingSpreeKills) {
+		if(m_Spree >= (g_Config.m_SvKillingSpreeKills * 5) + (g_Config.m_SvKillingSpreeKills * 2)) {
+			GameServer()->CreateRingExplosion(m_Pos, m_pPlayer->GetCID(), 1, 15, 10, true);
+		} else {
+			GameServer()->CreateSound(m_Pos, SOUND_GRENADE_EXPLODE);
+			GameServer()->CreateExplosion(m_Pos, m_pPlayer->GetCID(), WEAPON_RIFLE, true);
+		}
+
+		if(g_Config.m_SvKillingSpreePrint) {
+			char aBuf[128];
+			if(Killer != m_pPlayer->GetCID()) {
+				str_format(aBuf, sizeof(aBuf), "%s %d-kills killing spree was ended by %s", Server()->ClientName(m_pPlayer->GetCID()), m_Spree, Server()->ClientName(Killer));
+				GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
+				GameServer()->SendBroadcast("You lost all of your items", m_pPlayer->GetCID());
+			} else {
+				str_format(aBuf, sizeof(aBuf), "%s %d-kills killing spree was ended.", Server()->ClientName(m_pPlayer->GetCID()), m_Spree);
+				GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
+				GameServer()->SendBroadcast("You lost all of your items", m_pPlayer->GetCID());
+			}
+		}
+	}
+
+	m_HammerFreeze = false;
+	m_HammerForce = false;
+	m_JetPack = false;
+	m_SpeedRunner = false;
+	m_RifleSpread = false;
+	m_Core.m_Protected = false;
+	m_Invisible = false;
+	m_TeamProtect = false;
+	m_GrenadeLauncher = false;
+	m_Spree = 0;
 }

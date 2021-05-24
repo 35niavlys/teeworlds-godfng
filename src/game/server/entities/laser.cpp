@@ -3,6 +3,7 @@
 #include <game/generated/protocol.h>
 #include <game/server/gamecontext.h>
 #include "laser.h"
+#include "health.h"
 
 CLaser::CLaser(CGameWorld *pGameWorld, vec2 Pos, vec2 Direction, float StartEnergy, int Owner)
 : CEntity(pGameWorld, CGameWorld::ENTTYPE_LASER)
@@ -30,6 +31,19 @@ bool CLaser::HitCharacter(vec2 From, vec2 To)
 	m_Pos = At;
 	m_Energy = -1;
 	pHit->TakeDamage(vec2(0.f, 0.f), GameServer()->Tuning()->m_LaserDamage, m_Owner, WEAPON_RIFLE);
+
+	if(
+		pOwnerChar &&
+		pOwnerChar->m_TeamProtect &&
+		pOwnerChar->GetPlayer()->GetTeam() == pHit->GetPlayer()->GetTeam() &&
+		pHit->IsFrozen() &&
+		!pHit->m_MoltenByHammer &&
+		!pHit->Core()->m_ProtectedBy
+	) {
+		pHit->Core()->m_ProtectedBy = true;
+		new CHealth(&GameServer()->m_World, pHit->Core()->m_Pos, pHit->GetPlayer()->GetCID(), 1);
+	}
+
 	return true;
 }
 

@@ -25,6 +25,8 @@ public:
 	static const int ms_PhysSize = 28;
 
 	CCharacter(CGameWorld *pWorld);
+	
+	CCharacterCore* Core() { return &m_Core; };
 
 	virtual void Reset();
 	virtual void Destroy();
@@ -50,7 +52,7 @@ public:
 
 	void Die(int Killer, int Weapon);
 
-	void DieSpikes(int pPlayerID, int spikes_flag);
+	void DieSpikes(int pKillerID, int spikes_flag);
 	bool IsFalseSpike(int Team, int spike_flag);
 
 	void Hit(int Killer, int Weapon);
@@ -75,6 +77,28 @@ public:
 	bool IsFrozen();
 
 	void SetKiller(int pKillerID, unsigned int pHookTicks);
+
+	void AddSpree();
+	void EndSpree(int Killer);
+
+	// number of sprees
+	int m_Spree;
+
+	// spree activators
+	bool m_HammerFreeze;
+	bool m_HammerForce;
+	bool m_GrenadeLauncher;
+	bool m_JetPack;
+	bool m_SpeedRunner;
+	bool m_RifleSpread;
+	bool m_Invisible;
+	bool m_TeamProtect;
+
+	// spree settings
+	bool m_Visible;
+	int m_InvisibleTick;
+	bool m_MoltenByHammer;
+	int m_MoltenAt;
 
 private:
 	int NetworkClipped(int SnappingClient, float& Distance);
@@ -107,7 +131,7 @@ private:
 	int m_LastWeapon;
 	int m_QueuedWeapon;
 
-	int m_ReloadTimer;
+	int m_ReloadTimer[NUM_WEAPONS];
 	int m_AttackTick;
 
 	int m_EmoteType;
@@ -131,13 +155,6 @@ private:
 
 	int m_Health;
 	int m_Armor;
-
-	// freeze
-	struct
-	{
-		int m_ActivationTick;
-		int m_Duration;
-	} m_Freeze;
 
 	// killer, that frozen this character
 	struct {

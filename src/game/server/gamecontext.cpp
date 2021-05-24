@@ -291,6 +291,20 @@ void CGameContext::CreateSoundGlobal(int Sound, int Target)
 	Server()->SendPackMsg(&Msg, Flag, Target);	
 }
 
+void CGameContext::CreateRingExplosion(vec2 Pos, int Owner, int Rings, int Dist, int Explosions, bool Sound)
+{
+	vec2 CurPos;
+	for(int i = 1; i <= Rings; i++)
+	{
+		for(int j = 0; j < Explosions; j++)
+		{
+			CurPos = vec2(Pos.x+(i*Dist*10*cosf(((float)j/Explosions)*2*pi)), Pos.y+(i*Dist*10*sinf(((float)j/Explosions)*2*pi)));
+			CreateExplosion(CurPos, Owner, WEAPON_WORLD, false);
+			if(Sound)
+				CreateSound(CurPos, SOUND_GRENADE_EXPLODE);
+		}
+	}
+}
 
 void CGameContext::SendChatTarget(int To, const char *pText)
 {
@@ -1445,6 +1459,39 @@ void CGameContext::CmdEmote(CGameContext* pContext, int pClientID, const char** 
 	}
 }
 
+void CGameContext::CmdGod(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum){
+	CCharacter* c = pContext->GetPlayerChar(pClientID);
+	if (c) {
+		char buff[900];
+		str_format(buff, 900, "╔═════════ God ═════════\n"
+			"║\n"
+			"║ IceHammer: %s\n"
+			"║ BigHammer: %s\n"
+			"║ Grenade: %s\n"
+			"║ Jetpack: %s\n"
+			"║ MaxSpeed: %s\n"
+			"║ Laser2x: %s\n"
+			"║ Protection: %s\n"
+			"║ Invisibility: %s\n"
+			"║ TeamProtection: %s\n"
+			"║\n"
+			"╚══════════════════════════\n",
+			c->m_HammerFreeze ? "yes": "no",
+			c->m_HammerForce ? "yes": "no",
+			c->m_GrenadeLauncher ? "yes": "no",
+			c->m_JetPack ? "yes": "no",
+			c->m_SpeedRunner ? "yes": "no",
+			c->m_RifleSpread ? "yes": "no",
+			c->Core()->m_Protected ? "yes": "no",
+			c->m_Invisible ? "yes": "no",
+			c->m_TeamProtect ? "yes": "no"
+		);
+		CNetMsg_Sv_Motd Msg;
+		Msg.m_pMessage = buff;
+		pContext->Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, pClientID);
+	}
+}
+
 
 void CGameContext::ConTuneParam(IConsole::IResult *pResult, void *pUserData)
 {
@@ -1610,24 +1657,11 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 		return;
 	}
 
-	// check for duplicate entry
-	CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst;
-	while(pOption)
-	{
-		if(str_comp_nocase(pDescription, pOption->m_aDescription) == 0)
-		{
-			char aBuf[256];
-			str_format(aBuf, sizeof(aBuf), "option '%s' already exists", pDescription);
-			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
-			return;
-		}
-		pOption = pOption->m_pNext;
-	}
-
 	// add the option
 	++pSelf->m_NumVoteOptions;
 	int Len = str_length(pCommand);
 
+	CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst;
 	pOption = (CVoteOptionServer *)pSelf->m_pVoteOptionHeap->Allocate(sizeof(CVoteOptionServer) + Len);
 	pOption->m_pNext = 0;
 	pOption->m_pPrev = pSelf->m_pVoteOptionLast;
@@ -1815,6 +1849,30 @@ void CGameContext::ConVote(IConsole::IResult *pResult, void *pUserData)
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 }
 
+void CGameContext::ConGiveGod(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+
+	int ClientID = pResult->GetInteger(0);
+
+	CCharacter *pCharCore = pSelf->GetPlayerChar(ClientID);
+	if(pCharCore) {
+		char aBuf[256];
+		str_format(aBuf, sizeof(aBuf), "Gived god to client %d", ClientID);
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
+
+		pCharCore->m_HammerFreeze = true;
+		pCharCore->m_HammerForce = true;
+		pCharCore->m_JetPack = true;
+		pCharCore->m_SpeedRunner = true;
+		pCharCore->m_RifleSpread = true;
+		pCharCore->Core()->m_Protected = true;
+		pCharCore->m_Invisible = true;
+		pCharCore->m_TeamProtect = true;
+		pCharCore->m_GrenadeLauncher = true;
+	}
+}
+
 void CGameContext::ConchainSpecialMotdupdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -1855,6 +1913,8 @@ void CGameContext::OnConsoleInit()
 	Console()->Register("force_vote", "ss?r", CFGFLAG_SERVER, ConForceVote, this, "Force a voting option");
 	Console()->Register("clear_votes", "", CFGFLAG_SERVER, ConClearVotes, this, "Clears the voting options");
 	Console()->Register("vote", "r", CFGFLAG_SERVER, ConVote, this, "Force a vote to yes/no");
+	
+	Console()->Register("god", "i", CFGFLAG_SERVER, ConGiveGod, this, "Give god powers to player");
 
 	Console()->Chain("sv_motd", ConchainSpecialMotdupdate, this);
 }
@@ -1874,6 +1934,7 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 	AddServerCommand("c", "whisper to the player, you whispered to last", "<text>", CmdConversation);
 	AddServerCommand("help", "show the cmd list or get more information to any command", "<command>", CmdHelp);
 	AddServerCommand("cmdlist", "show the cmd list", 0, CmdHelp);
+	AddServerCommand("god", "show sprees list", 0, CmdGod);
 	if(m_Config->m_SvEmoteWheel || m_Config->m_SvEmotionalTees) AddServerCommand("emote", "enable custom emotes", "<emote type> <time in seconds>", CmdEmote);
 
 	//if(!data) // only load once

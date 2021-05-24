@@ -59,6 +59,9 @@ void CCharacterCore::Init(CWorldCore *pWorld, CCollision *pCollision)
 {
 	m_pWorld = pWorld;
 	m_pCollision = pCollision;
+	m_Freeze.m_ActivationTick = 0;
+	m_Protected = false;
+	m_ProtectedBy = false;
 }
 
 void CCharacterCore::Reset()
@@ -72,6 +75,9 @@ void CCharacterCore::Reset()
 	m_HookedPlayer = -1;
 	m_Jumped = 0;
 	m_TriggeredEvents = 0;
+	m_Freeze.m_ActivationTick = 0;
+	m_Protected = false;
+	m_ProtectedBy = false;
 	
 	mem_zero(&m_CoreStats, sizeof(m_CoreStats));
 }
@@ -349,7 +355,10 @@ void CCharacterCore::TickDeferred()
 			else m_CoreStats.m_HadCollision[i] = 0;
 
 			// handle hook influence
-			if(m_HookedPlayer == i && m_pWorld->m_Tuning.m_PlayerHooking)
+			if(
+				(m_HookedPlayer == i && m_pWorld->m_Tuning.m_PlayerHooking && !pCharCore->m_Protected && !pCharCore->m_ProtectedBy) ||
+				(m_HookedPlayer == i && m_pWorld->m_Tuning.m_PlayerHooking && pCharCore->m_Protected && pCharCore->m_Freeze.m_ActivationTick <= 0)
+			)
 			{
 				if(Distance > PhysSize*1.50f) // TODO: fix tweakable variable
 				{

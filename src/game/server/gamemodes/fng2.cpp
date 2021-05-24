@@ -10,16 +10,18 @@
 CGameControllerFNG2::CGameControllerFNG2(class CGameContext *pGameServer)
 : IGameController((class CGameContext*)pGameServer)
 {
-	m_pGameType = "fng2";
+	m_pGameType = "godfng";
 	m_GameFlags = GAMEFLAG_TEAMS;
 	
 	m_Warmup = m_Config.m_SvWarmup;
+	
+	g_pData->m_Weapons.m_aId[WEAPON_GRENADE].m_Ammoregentime = 1500;
 }
 
 CGameControllerFNG2::CGameControllerFNG2(class CGameContext *pGameServer, CConfiguration& pConfig)
 : IGameController((class CGameContext*)pGameServer, pConfig)
 {
-	m_pGameType = "fng2";
+	m_pGameType = "godfng";
 	m_GameFlags = GAMEFLAG_TEAMS;
 	
 	m_Warmup = m_Config.m_SvWarmup;

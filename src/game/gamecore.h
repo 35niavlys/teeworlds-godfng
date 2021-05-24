@@ -185,6 +185,8 @@ public:
 	int m_HookTick;
 	int m_HookState;
 	int m_HookedPlayer;
+	bool m_Protected;
+	bool m_ProtectedBy;
 
 	int m_Jumped;
 
@@ -193,6 +195,13 @@ public:
 	CNetObj_PlayerInput m_Input;
 
 	int m_TriggeredEvents;
+
+	// freeze
+	struct
+	{
+		int m_ActivationTick;
+		int m_Duration;
+	} m_Freeze;
 	
 	struct sCharacterCoreStats{
 		int m_NumJumped;

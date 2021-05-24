@@ -678,12 +678,16 @@ set_src(GAME_SERVER GLOB_RECURSE src/game/server
   entities/character.h
   entities/flag.cpp
   entities/flag.h
+  entities/health.cpp
+  entities/health.h
   entities/laser.cpp
   entities/laser.h
   entities/pickup.cpp
   entities/pickup.h
   entities/projectile.cpp
   entities/projectile.h
+  entities/shield.cpp
+  entities/shield.h
   entity.cpp
   entity.h
   eventhandler.cpp

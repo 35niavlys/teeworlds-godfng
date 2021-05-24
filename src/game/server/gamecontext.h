@@ -177,6 +177,7 @@ class CGameContext : public IGameServer
 	static void ConForceVote(IConsole::IResult *pResult, void *pUserData);
 	static void ConClearVotes(IConsole::IResult *pResult, void *pUserData);
 	static void ConVote(IConsole::IResult *pResult, void *pUserData);
+	static void ConGiveGod(IConsole::IResult *pResult, void *pUserData);
 	static void ConchainSpecialMotdupdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	CGameContext(int Resetting);
@@ -197,6 +198,7 @@ public:
 	static void CmdConversation(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum);
 	static void CmdHelp(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum);
 	static void CmdEmote(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum);
+	static void CmdGod(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum);
 	
 	IServer *Server() const { return m_pServer; }
 	class IConsole *Console() { return m_pConsole; }
@@ -257,6 +259,7 @@ public:
 	void CreateDeath(vec2 Pos, int Who);
 	void CreateSound(vec2 Pos, int Sound, QuadroMask Mask=QuadroMask(-1ll));
 	void CreateSoundGlobal(int Sound, int Target=-1);
+	void CreateRingExplosion(vec2 Pos, int Owner, int Rings, int Dist, int Explosions, bool Sound);
 
 
 	enum

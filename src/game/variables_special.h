@@ -41,3 +41,8 @@ MACRO_CONFIG_INT(SvGrenadeDamageToHit, sv_grenade_damage_to_hit, 4, 0, 6, CFGFLA
 
 
 MACRO_CONFIG_INT(SvTrivia, sv_trivia, 1, 0, 1, CFGFLAG_SERVER, "Send trivia at round end.")
+
+
+//godfng
+MACRO_CONFIG_INT(SvKillingSpreeKills, sv_killingspree_kills, 1, 0, 5, CFGFLAG_SERVER, "How many kills are needed to be on a killing-spree")
+MACRO_CONFIG_INT(SvKillingSpreePrint, sv_killingspree_print, 1, 0, 1, CFGFLAG_SERVER, "Display killingspree msg: 0 disables, 1 enables ")
