@@ -6,6 +6,7 @@
 #include <game/mapitems.h>
 
 #include "character.h"
+#include "game/generated/protocol.h"
 #include "laser.h"
 #include "projectile.h"
 #include "../fng2define.h"
@@ -198,7 +199,7 @@ void CCharacter::HandleFreeze()
 void CCharacter::DoWeaponSwitch()
 {
 	// make sure we can switch
-	if(m_QueuedWeapon == -1)
+	if((g_Config.m_SvPerWeaponReload == 0 && m_ReloadTimer[GetActiveWeaponForReload()] != 0) || m_QueuedWeapon == -1)
 		return;
 
 	// switch Weapon
@@ -250,9 +251,15 @@ bool CCharacter::IsFrozen(){
 	return m_Core.m_Freeze.m_ActivationTick != 0;
 }
 
+int CCharacter::GetActiveWeaponForReload() {
+	if(g_Config.m_SvPerWeaponReload)
+		return m_ActiveWeapon;
+	return 0;
+}
+
 void CCharacter::FireWeapon()
 {
-	if(m_ReloadTimer[m_ActiveWeapon] != 0 || (IsFrozen() && m_Core.m_Freeze.m_ActivationTick != Server()->Tick()))
+	if(m_ReloadTimer[GetActiveWeaponForReload()] != 0 || (IsFrozen() && m_Core.m_Freeze.m_ActivationTick != Server()->Tick()))
 		return;
 
 	DoWeaponSwitch();
@@ -278,7 +285,7 @@ void CCharacter::FireWeapon()
 	if(!m_aWeapons[m_ActiveWeapon].m_Ammo)
 	{
 		// 125ms is a magical limit of how fast a human can click
-		m_ReloadTimer[m_ActiveWeapon] = 125 * Server()->TickSpeed() / 1000;
+		m_ReloadTimer[GetActiveWeaponForReload()] = 125 * Server()->TickSpeed() / 1000;
 		if(m_LastNoAmmoSound+Server()->TickSpeed() <= Server()->Tick())
 		{
 			GameServer()->CreateSound(m_Pos, SOUND_WEAPON_NOAMMO);
@@ -327,7 +334,7 @@ void CCharacter::FireWeapon()
 
 			// if we Hit anything, we have to wait for the reload
 			if(Hits)
-				m_ReloadTimer[m_ActiveWeapon] = Server()->TickSpeed()/3;
+				m_ReloadTimer[GetActiveWeaponForReload()] = Server()->TickSpeed()/3;
 
 		} break;
 
@@ -407,18 +414,23 @@ void CCharacter::FireWeapon()
 	if(m_aWeapons[m_ActiveWeapon].m_Ammo > 0) // -1 == unlimited
 		m_aWeapons[m_ActiveWeapon].m_Ammo--;
 
-	if(!m_ReloadTimer[m_ActiveWeapon])
-		m_ReloadTimer[m_ActiveWeapon] = WeaponFireDelay;
+	if(!m_ReloadTimer[GetActiveWeaponForReload()])
+		m_ReloadTimer[GetActiveWeaponForReload()] = WeaponFireDelay;
 }
 
 void CCharacter::HandleWeapons()
 {
+	bool IsWeaponReloading = m_ReloadTimer[GetActiveWeaponForReload()] > 0;
+
 	// check reload timer
-	if(m_ReloadTimer[m_ActiveWeapon])
+	for(int i = 0; i < NUM_WEAPONS; ++i)
 	{
-		m_ReloadTimer[m_ActiveWeapon]--;
-		return;
+		if(m_ReloadTimer[i])
+			m_ReloadTimer[i]--;
 	}
+
+	if(IsWeaponReloading)
+		return;
 
 	// fire Weapon, if wanted
 	FireWeapon();
@@ -428,7 +440,7 @@ void CCharacter::HandleWeapons()
 	if(AmmoRegenTime)
 	{
 		// If equipped and not active, regen ammo?
-		if (m_ReloadTimer[m_ActiveWeapon] <= 0)
+		if (m_ReloadTimer[GetActiveWeaponForReload()] <= 0)
 		{
 			if (m_aWeapons[m_ActiveWeapon].m_AmmoRegenStart < 0)
 				m_aWeapons[m_ActiveWeapon].m_AmmoRegenStart = Server()->Tick();
