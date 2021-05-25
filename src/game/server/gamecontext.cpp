@@ -1462,7 +1462,8 @@ void CGameContext::CmdGod(CGameContext* pContext, int pClientID, const char** pA
 	CCharacter* c = pContext->GetPlayerChar(pClientID);
 	if (c) {
 		char buff[900];
-		str_format(buff, 900, "╔═════════ God ═════════\n"
+		str_format(buff, 900, 
+			"╔═══════════ God ══════════\n"
 			"║\n"
 			"║ IceHammer: %s\n"
 			"║ BigHammer: %s\n"
@@ -1471,8 +1472,8 @@ void CGameContext::CmdGod(CGameContext* pContext, int pClientID, const char** pA
 			"║ MaxSpeed: %s\n"
 			"║ Laser2x: %s\n"
 			"║ Protection: %s\n"
-			"║ Invisibility: %s\n"
 			"║ TeamProtection: %s\n"
+			"║ Invisibility: %s\n"
 			"║\n"
 			"╚══════════════════════════\n",
 			c->m_HammerFreeze ? "yes": "no",
@@ -1481,9 +1482,9 @@ void CGameContext::CmdGod(CGameContext* pContext, int pClientID, const char** pA
 			c->m_JetPack ? "yes": "no",
 			c->m_SpeedRunner ? "yes": "no",
 			c->m_RifleSpread ? "yes": "no",
-			c->Core()->m_Protected ? "yes": "no",
-			c->m_Invisible ? "yes": "no",
-			c->m_TeamProtect ? "yes": "no"
+			c->Core()->m_Fat ? "yes": "no",
+			c->m_TeamProtect ? "yes": "no",
+			c->m_Invisible ? "yes": "no"
 		);
 		CNetMsg_Sv_Motd Msg;
 		Msg.m_pMessage = buff;
@@ -1865,7 +1866,7 @@ void CGameContext::ConGiveGod(IConsole::IResult *pResult, void *pUserData)
 		pCharCore->m_JetPack = true;
 		pCharCore->m_SpeedRunner = true;
 		pCharCore->m_RifleSpread = true;
-		pCharCore->Core()->m_Protected = true;
+		pCharCore->Core()->m_Fat = true;
 		pCharCore->m_Invisible = true;
 		pCharCore->m_TeamProtect = true;
 		pCharCore->m_GrenadeLauncher = true;

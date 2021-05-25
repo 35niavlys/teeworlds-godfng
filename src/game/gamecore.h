@@ -185,8 +185,8 @@ public:
 	int m_HookTick;
 	int m_HookState;
 	int m_HookedPlayer;
-	bool m_Protected;
-	bool m_ProtectedBy;
+	bool m_Fat;
+	bool m_FatByTeam;
 
 	int m_Jumped;
 

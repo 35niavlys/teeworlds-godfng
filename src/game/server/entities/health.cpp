@@ -24,7 +24,7 @@ void CHealth::Tick()
 	}
 
 	m_Pos = m_Ownerchar->m_Pos - vec2(0, 45);
-	if(GameServer()->m_World.m_Paused == true || !m_Ownerchar->Core()->m_ProtectedBy)
+	if(GameServer()->m_World.m_Paused == true || !m_Ownerchar->Core()->m_FatByTeam)
 		GameWorld()->DestroyEntity(this);
 }
 

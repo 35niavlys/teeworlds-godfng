@@ -38,9 +38,9 @@ bool CLaser::HitCharacter(vec2 From, vec2 To)
 		pOwnerChar->GetPlayer()->GetTeam() == pHit->GetPlayer()->GetTeam() &&
 		pHit->IsFrozen() &&
 		!pHit->m_MoltenByHammer &&
-		!pHit->Core()->m_ProtectedBy
+		!pHit->Core()->m_FatByTeam
 	) {
-		pHit->Core()->m_ProtectedBy = true;
+		pHit->Core()->m_FatByTeam = true;
 		new CHealth(&GameServer()->m_World, pHit->Core()->m_Pos, pHit->GetPlayer()->GetCID(), 1);
 	}
 
