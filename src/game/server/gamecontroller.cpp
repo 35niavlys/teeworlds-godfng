@@ -19,6 +19,7 @@ IGameController::IGameController(class CGameContext *pGameServer) :
 	m_pGameServer = pGameServer;
 	m_pServer = m_pGameServer->Server();
 	m_pGameType = "unknown";
+	m_NumTeams = -1;
 	
 	DoWarmup(m_Config.m_SvWarmup);
 	m_UnpauseTimer = 0;
@@ -47,6 +48,7 @@ IGameController::IGameController(class CGameContext *pGameServer, CConfiguration
 	m_pGameServer = pGameServer;
 	m_pServer = m_pGameServer->Server();
 	m_pGameType = "unknown";
+	m_NumTeams = -1;
 
 	//
 	DoWarmup(m_Config.m_SvWarmup);

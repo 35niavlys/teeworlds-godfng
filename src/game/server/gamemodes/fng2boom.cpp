@@ -12,6 +12,7 @@ CGameControllerFNG2Boom::CGameControllerFNG2Boom(class CGameContext *pGameServer
 {
 	m_pGameType = "godfng";
 	m_GameFlags = GAMEFLAG_TEAMS;
+	m_NumTeams = 2;
 	
 	if(m_Config.m_SvTournamentMode) m_Warmup = 60*Server()->TickSpeed();
 	else m_Warmup = m_Config.m_SvWarmup;
@@ -24,6 +25,7 @@ CGameControllerFNG2Boom::CGameControllerFNG2Boom(class CGameContext *pGameServer
 {
 	m_pGameType = "godfng";
 	m_GameFlags = GAMEFLAG_TEAMS;
+	m_NumTeams = 2;
 	
 	if(m_Config.m_SvTournamentMode) m_Warmup = 60*Server()->TickSpeed();
 	else m_Warmup = m_Config.m_SvWarmup;

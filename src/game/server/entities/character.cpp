@@ -954,7 +954,7 @@ void CCharacter::DieSpikes(int pKillerID, int spikes_flag) {
 			Msg.m_ModeSpecial = ModeSpecial;
 			GameServer()->SendPackMsg(&Msg, MSGFLAG_VITAL);
 
-			if (GameServer()->m_pController->IsTeamplay() && IsFalseSpike(GameServer()->m_apPlayers[pKillerID]->GetTeam(), spikes_flag)) {
+			if (GameServer()->m_pController->IsTeamplay() && IsFalseSpike(GameServer()->m_pController->GetNumberTeams(), GameServer()->m_apPlayers[pKillerID]->GetTeam(), spikes_flag)) {
 				CCharacter* pKiller = ((CPlayer*)GameServer()->m_apPlayers[pKillerID])->GetCharacter();
 				if (pKiller && !pKiller->IsFrozen()) {
 					pKiller->Freeze(g_Config.m_SvFalseSpikeFreeze);
@@ -1004,11 +1004,15 @@ void CCharacter::DieSpikes(int pKillerID, int spikes_flag) {
 
 }
 
-bool CCharacter::IsFalseSpike(int Team, int spike_flag) {
-	if (Team == TEAM_BLUE && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
-	else if (Team == TEAM_RED && (spike_flag&(CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
-	else if (Team == TEAM_GREEN && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
-	else if (Team == TEAM_PURPLE && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_BLUE)) != 0) return true;
+bool CCharacter::IsFalseSpike(int numTeams, int Team, int spike_flag) {
+	if (numTeams > 1) {
+		if (numTeams == 2 && (spike_flag&(CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0)
+			return false;
+		if (Team == TEAM_BLUE && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
+		if (Team == TEAM_RED && (spike_flag&(CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
+		if (Team == TEAM_GREEN && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
+		if (Team == TEAM_PURPLE && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_BLUE)) != 0) return true;
+	}
 	return false;
 }
 

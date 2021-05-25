@@ -14,6 +14,7 @@ CGameControllerFNG24Teams::CGameControllerFNG24Teams(class CGameContext *pGameSe
 {
 	m_pGameType = "godfng";
 	m_GameFlags = GAMEFLAG_TEAMS;
+	m_NumTeams = 4;
 	
 	if(m_Config.m_SvTournamentMode) m_Warmup = 60*Server()->TickSpeed();
 	else m_Warmup = m_Config.m_SvWarmup;	
@@ -42,6 +43,7 @@ CGameControllerFNG24Teams::CGameControllerFNG24Teams(class CGameContext *pGameSe
 {
 	m_pGameType = "godfng";
 	m_GameFlags = GAMEFLAG_TEAMS;
+	m_NumTeams = 4;
 	
 	if(m_Config.m_SvTournamentMode) m_Warmup = 60*Server()->TickSpeed();
 	else m_Warmup = m_Config.m_SvWarmup;
