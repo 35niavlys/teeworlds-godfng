@@ -939,3 +939,11 @@ void CGameControllerFNG24Teams::CmdJoinTeam(CGameContext* pContext, int pClientI
 		pContext->SendChatTarget(pClientID, "Join commands are: r or red, b or blue, g or green, p or purple and s or spectator to join the team");
 	}
 }
+
+bool CGameControllerFNG24Teams::IsFalseSpike(int Team, int SpikeFlags) {
+	if (Team == TEAM_BLUE && (SpikeFlags&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
+	else if (Team == TEAM_RED && (SpikeFlags&(CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
+	else if (Team == TEAM_GREEN && (SpikeFlags&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
+	else if (Team == TEAM_PURPLE && (SpikeFlags&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_BLUE)) != 0) return true;
+	return false;
+}

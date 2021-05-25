@@ -333,7 +333,7 @@ void CCharacter::FireWeapon()
 
 		case WEAPON_GUN:
 		{
-			CProjectile *pProj = new CProjectile(GameWorld(), WEAPON_GUN,
+			new CProjectile(GameWorld(), WEAPON_GUN,
 				m_pPlayer->GetCID(),
 				ProjStartPos,
 				Direction,
@@ -354,7 +354,7 @@ void CCharacter::FireWeapon()
 				a += Spreading[i+2];
 				float v = 1-(absolute(i)/(float)ShotSpread);
 				float Speed = mix((float)GameServer()->Tuning()->m_ShotgunSpeeddiff, 1.0f, v);
-				CProjectile *pProj = new CProjectile(GameWorld(), WEAPON_SHOTGUN,
+				new CProjectile(GameWorld(), WEAPON_SHOTGUN,
 					m_pPlayer->GetCID(),
 					ProjStartPos,
 					vec2(cosf(a), sinf(a))*Speed,
@@ -368,7 +368,7 @@ void CCharacter::FireWeapon()
 		case WEAPON_GRENADE:
 		{
 			++m_pPlayer->m_Stats.m_Shots;
-			CProjectile *pProj = new CProjectile(GameWorld(), WEAPON_GRENADE,
+			new CProjectile(GameWorld(), WEAPON_GRENADE,
 				m_pPlayer->GetCID(),
 				ProjStartPos,
 				Direction,
@@ -954,8 +954,9 @@ void CCharacter::DieSpikes(int pKillerID, int spikes_flag) {
 			Msg.m_ModeSpecial = ModeSpecial;
 			GameServer()->SendPackMsg(&Msg, MSGFLAG_VITAL);
 
-			if (GameServer()->m_pController->IsTeamplay() && IsFalseSpike(GameServer()->m_pController->GetNumberTeams(), GameServer()->m_apPlayers[pKillerID]->GetTeam(), spikes_flag)) {
-				CCharacter* pKiller = ((CPlayer*)GameServer()->m_apPlayers[pKillerID])->GetCharacter();
+			if(GameServer()->m_pController->IsTeamplay() && GameServer()->m_pController->IsFalseSpike(GameServer()->m_apPlayers[pKillerID]->GetTeam(), spikes_flag))
+			{
+				CCharacter *pKiller = ((CPlayer *)GameServer()->m_apPlayers[pKillerID])->GetCharacter();
 				if (pKiller && !pKiller->IsFrozen()) {
 					pKiller->Freeze(g_Config.m_SvFalseSpikeFreeze);
 					GameServer()->CreateSound(pKiller->m_Pos, SOUND_TEE_CRY);
@@ -1002,18 +1003,6 @@ void CCharacter::DieSpikes(int pKillerID, int spikes_flag) {
 		GameServer()->CreateDeath(m_Pos, m_pPlayer->GetCID());
 	}
 
-}
-
-bool CCharacter::IsFalseSpike(int numTeams, int Team, int spike_flag) {
-	if (numTeams > 1) {
-		if (numTeams == 2 && (spike_flag&(CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0)
-			return false;
-		if (Team == TEAM_BLUE && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
-		if (Team == TEAM_RED && (spike_flag&(CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
-		if (Team == TEAM_GREEN && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_BLUE | CCollision::COLFLAG_SPIKE_PURPLE)) != 0) return true;
-		if (Team == TEAM_PURPLE && (spike_flag&(CCollision::COLFLAG_SPIKE_RED | CCollision::COLFLAG_SPIKE_GREEN | CCollision::COLFLAG_SPIKE_BLUE)) != 0) return true;
-	}
-	return false;
 }
 
 void CCharacter::Hit(int Killer, int Weapon)

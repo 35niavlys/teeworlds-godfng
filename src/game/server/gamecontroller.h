@@ -158,6 +158,8 @@ public:
 	virtual bool UseFakeTeams();
 
 	virtual void PostReset();
+
+	virtual bool IsFalseSpike(int Team, int SpikeFlags);
 };
 
 #endif

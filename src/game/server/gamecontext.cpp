@@ -335,6 +335,7 @@ void CGameContext::SendChat(int ChatterClientID, int Team, const char *pText, in
 		Msg.m_pMessage = pText;
 		SendPackMsg(&Msg, MSGFLAG_VITAL);
 	}
+
 	else if((Team == CHAT_WHISPER_RECV || Team == CHAT_WHISPER_SEND) && To != -1){
 		CNetMsg_Sv_Chat Msg;
 		Msg.m_Team = Team;
@@ -1287,19 +1288,19 @@ void CGameContext::CmdStats(CGameContext* pContext, int pClientID, const char** 
 		"║Kills/Deaths: %4.2f\n"
 		"║Shots | Kills/Shots: %d | %3.1f%%\n"
 		"║\n"
-		"╠══════════ Spikes ══════════\n"
+		"╠═════════ Spike kills ════════\n"
 		"║\n"
-		"║Kills(normal spikes): %d\n"
-		"║Kills(team spikes): %d\n"
-		"║Kills(golden spikes): %d\n"
-		"║Kills(false spikes): %d\n"
-		"║Spike deaths(while frozen): %d\n"
+		"║Normal: %d\n"
+		"║Team: %d\n"
+		"║Gold/Green/Purple: %d/%d/%d\n"
+		"║False: %d\n"
+		"║Deaths(while frozen): %d\n"
 		"║\n"
 		"╠═══════════ Misc ══════════\n"
 		"║\n"
 		"║Mates hammer-/unfrozen: %d/%d\n"
 		"║\n"
-		"╚══════════════════════════\n", p->m_Stats.m_Kills, p->m_Stats.m_Hits, (p->m_Stats.m_Hits != 0) ? (float)((float)p->m_Stats.m_Kills / (float)p->m_Stats.m_Hits) : (float)p->m_Stats.m_Kills, p->m_Stats.m_Shots, ((float)p->m_Stats.m_Kills / (float)(p->m_Stats.m_Shots == 0 ? 1: p->m_Stats.m_Shots)) * 100.f, p->m_Stats.m_GrabsNormal, p->m_Stats.m_GrabsTeam, p->m_Stats.m_GrabsGold, p->m_Stats.m_GrabsFalse, p->m_Stats.m_Deaths, p->m_Stats.m_UnfreezingHammerHits, p->m_Stats.m_Unfreezes);
+		"╚══════════════════════════\n", p->m_Stats.m_Kills, p->m_Stats.m_Hits, (p->m_Stats.m_Hits != 0) ? (float)((float)p->m_Stats.m_Kills / (float)p->m_Stats.m_Hits) : (float)p->m_Stats.m_Kills, p->m_Stats.m_Shots, ((float)p->m_Stats.m_Kills / (float)(p->m_Stats.m_Shots == 0 ? 1: p->m_Stats.m_Shots)) * 100.f, p->m_Stats.m_GrabsNormal, p->m_Stats.m_GrabsTeam, p->m_Stats.m_GrabsGold, p->m_Stats.m_GrabsGreen, p->m_Stats.m_GrabsPurple, p->m_Stats.m_GrabsFalse, p->m_Stats.m_Deaths, p->m_Stats.m_UnfreezingHammerHits, p->m_Stats.m_Unfreezes);
 
 	CNetMsg_Sv_Motd Msg;
 	Msg.m_pMessage = buff;
@@ -1403,9 +1404,7 @@ void CGameContext::CmdConversation(CGameContext* pContext, int pClientID, const 
 	else pContext->SendChatTarget(pClientID, "[/conversation] usage: /c <text>, after you already whispered to a player");
 }
 
-void CGameContext::CmdHelp(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum){
-	CPlayer* p = pContext->m_apPlayers[pClientID];
-	
+void CGameContext::CmdHelp(CGameContext* pContext, int pClientID, const char** pArgs, int ArgNum){	
 	if (ArgNum != 0) {
 		sServerCommand* pCmd = pContext->FindCommand(pArgs[0]);
 		if(pCmd) {
@@ -1433,25 +1432,25 @@ void CGameContext::CmdEmote(CGameContext* pContext, int pClientID, const char** 
 	if (ArgNum > 0) {
 		if (!str_comp_nocase_whitespace(pArgs[0], "angry"))
 				pPlayer->m_Emotion = EMOTE_ANGRY;
-			else if (!str_comp_nocase_whitespace(pArgs[0], "blink"))
-				pPlayer->m_Emotion = EMOTE_BLINK;
-			else if (!str_comp_nocase_whitespace(pArgs[0], "close"))
-				pPlayer->m_Emotion = EMOTE_BLINK;
-			else if (!str_comp_nocase_whitespace(pArgs[0], "happy"))
-				pPlayer->m_Emotion = EMOTE_HAPPY;
-			else if (!str_comp_nocase_whitespace(pArgs[0], "pain"))
-				pPlayer->m_Emotion = EMOTE_PAIN;
-			else if (!str_comp_nocase_whitespace(pArgs[0], "surprise"))
-				pPlayer->m_Emotion = EMOTE_SURPRISE;
-			else if (!str_comp_nocase_whitespace(pArgs[0], "normal"))
-				pPlayer->m_Emotion = EMOTE_NORMAL;
-			else
-				pContext->SendChatTarget(pClientID, "Unknown emote... Say /emote");
-			
-			int Duration = pContext->Server()->TickSpeed();
-			if(ArgNum > 1) Duration = str_toint(pArgs[1]);
-			
-			pPlayer->m_EmotionDuration = Duration * pContext->Server()->TickSpeed();
+		else if (!str_comp_nocase_whitespace(pArgs[0], "blink"))
+			pPlayer->m_Emotion = EMOTE_BLINK;
+		else if (!str_comp_nocase_whitespace(pArgs[0], "close"))
+			pPlayer->m_Emotion = EMOTE_BLINK;
+		else if (!str_comp_nocase_whitespace(pArgs[0], "happy"))
+			pPlayer->m_Emotion = EMOTE_HAPPY;
+		else if (!str_comp_nocase_whitespace(pArgs[0], "pain"))
+			pPlayer->m_Emotion = EMOTE_PAIN;
+		else if (!str_comp_nocase_whitespace(pArgs[0], "surprise"))
+			pPlayer->m_Emotion = EMOTE_SURPRISE;
+		else if (!str_comp_nocase_whitespace(pArgs[0], "normal"))
+			pPlayer->m_Emotion = EMOTE_NORMAL;
+		else
+			pContext->SendChatTarget(pClientID, "Unknown emote... Say /emote");
+		
+		int Duration = pContext->Server()->TickSpeed();
+		if(ArgNum > 1) Duration = str_toint(pArgs[1]);
+		
+		pPlayer->m_EmotionDuration = Duration * pContext->Server()->TickSpeed();
 	} else {
 		//ddrace like
 		pContext->SendChatTarget(pClientID, "Emote commands are: /emote surprise /emote blink /emote close /emote angry /emote happy /emote pain");
@@ -2172,17 +2171,17 @@ void CGameContext::SendRoundStats() {
 		str_format(buff, 300, "║Shots | Kills/Shots: %d | %3.1f%%\n", p->m_Stats.m_Shots, ((float)p->m_Stats.m_Kills / (float)(p->m_Stats.m_Shots == 0 ? 1: p->m_Stats.m_Shots)) * 100.f);
 		SendChatTarget(i, buff);
 		SendChatTarget(i, "║");
-		SendChatTarget(i, "╠══════════ Spikes ══════════");
+		SendChatTarget(i, "╠═════════ Spike Kills ════════");
 		SendChatTarget(i, "║");
-		str_format(buff, 300, "║Kills(normal spikes): %d", p->m_Stats.m_GrabsNormal);
+		str_format(buff, 300, "║Normal: %d", p->m_Stats.m_GrabsNormal);
 		SendChatTarget(i, buff);
-		str_format(buff, 300, "║Kills(team spikes): %d", p->m_Stats.m_GrabsTeam);
+		str_format(buff, 300, "║Team: %d", p->m_Stats.m_GrabsTeam);
 		SendChatTarget(i, buff);
-		str_format(buff, 300, "║Kills(golden spikes): %d", p->m_Stats.m_GrabsGold);
+		str_format(buff, 300, "║Gold/Green/Purple: %d/%d/%d", p->m_Stats.m_GrabsGold, p->m_Stats.m_GrabsGreen, p->m_Stats.m_GrabsPurple);
 		SendChatTarget(i, buff);
-		str_format(buff, 300, "║Kills(false spikes): %d", p->m_Stats.m_GrabsFalse);
+		str_format(buff, 300, "║False: %d", p->m_Stats.m_GrabsFalse);
 		SendChatTarget(i, buff);
-		str_format(buff, 300, "║Spike deaths(while frozen): %d", p->m_Stats.m_Deaths);
+		str_format(buff, 300, "║Deaths(while frozen): %d", p->m_Stats.m_Deaths);
 		SendChatTarget(i, buff);
 		SendChatTarget(i, "║");
 		SendChatTarget(i, "╠═══════════ Misc ══════════");
@@ -2498,7 +2497,7 @@ void CGameContext::SendRandomTrivia(){
 			TriviaSent = true;
 		}
 	}
-	//player that threw most opponents into golden spikes
+	//player that threw most opponents into golden/colored spikes
 	else if(r == 10){
 		int MaxGold = 0;
 		int PlayerID = -1;
