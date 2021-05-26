@@ -1474,7 +1474,7 @@ void CGameContext::CmdGod(CGameContext* pContext, int pClientID, const char** pA
 			"║ Jetpack: %s\n"
 			"║ MaxSpeed: %s\n"
 			"║ Laser2x: %s\n"
-			"║ Protection: %s\n"
+			"║ Fat: %s\n"
 			"║ TeamProtection: %s\n"
 			"║ Invisibility: %s\n"
 			"║\n"
