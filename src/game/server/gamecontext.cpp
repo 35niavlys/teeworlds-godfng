@@ -1677,7 +1677,6 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 	++pSelf->m_NumVoteOptions;
 	int Len = str_length(pCommand);
 
-	CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst;
 	pOption = (CVoteOptionServer *)pSelf->m_pVoteOptionHeap->Allocate(sizeof(CVoteOptionServer) + Len);
 	pOption->m_pNext = 0;
 	pOption->m_pPrev = pSelf->m_pVoteOptionLast;
