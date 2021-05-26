@@ -176,6 +176,12 @@ public:
 		int m_Max;
 	} m_Latency;
 
+	// camper
+	int Anticamper();
+  	bool m_SentCampMsg;
+  	int m_CampTick;
+  	vec2 m_CampPos;
+
 private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;

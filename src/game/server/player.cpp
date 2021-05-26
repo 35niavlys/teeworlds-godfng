@@ -68,6 +68,9 @@ void CPlayer::Tick()
 
 	Server()->SetClientScore(m_ClientID, m_Score);
 
+	if(g_Config.m_SvAnticamper)
+    	Anticamper();
+
 	// do latency stuff
 	{
 		IServer::CClientInfo Info;
@@ -510,4 +513,55 @@ void CPlayer::FakeSnap(int PlayerID) {
 		StrToInts(&pClientInfo->m_Clan0, 3, "");
 		StrToInts(&pClientInfo->m_Skin0, 6, "default");
 	}
+}
+
+int CPlayer::Anticamper()
+{
+ 	if(GameServer()->m_World.m_Paused || !m_pCharacter || m_Team == TEAM_SPECTATORS || m_pCharacter->IsFrozen()) {
+ 		m_CampTick = -1;
+ 		m_SentCampMsg = false;
+ 		return 0;
+ 	}
+
+ 	float AnticamperRange = (float) g_Config.m_SvAnticamperRange;
+
+ 	if(m_CampTick == -1) {
+ 		m_CampPos = m_pCharacter->m_Pos;
+ 		m_CampTick = Server()->Tick() + Server()->TickSpeed()*g_Config.m_SvAnticamperTime;
+ 	}
+
+ 	// Check if the player is moving
+ 	if(
+		 (m_CampPos.x - m_pCharacter->m_Pos.x >= AnticamperRange || m_CampPos.x - m_pCharacter->m_Pos.x <= -AnticamperRange) ||
+		 (m_CampPos.y - m_pCharacter->m_Pos.y >= AnticamperRange || m_CampPos.y - m_pCharacter->m_Pos.y <= -AnticamperRange)) {
+		if(m_SentCampMsg) {
+ 			GameServer()->SendBroadcast("ANTICAMPER: ok", m_ClientID);
+ 			m_SentCampMsg = false;
+		}
+ 		m_CampTick = -1;
+ 	}
+
+ 	// Send warning to the player
+ 	if(m_CampTick <= Server()->Tick() + Server()->TickSpeed() * g_Config.m_SvAnticamperTime/2 && m_CampTick != -1 && !m_SentCampMsg) {
+ 		GameServer()->SendBroadcast("ANTICAMPER: Move or die", m_ClientID);
+ 		m_SentCampMsg = true;
+ 	}
+
+ 	// Kill him
+ 	if((m_CampTick <= Server()->Tick()) && (m_CampTick > 0)) {
+ 		if(g_Config.m_SvAnticamperFreeze) {
+ 			if(m_pCharacter->m_Invisible) {
+				m_pCharacter->m_Invisible = 0;
+				m_pCharacter->m_InvisibleTick = 0;
+			}
+			m_pCharacter->Freeze(g_Config.m_SvAnticamperFreeze);
+ 			GameServer()->SendBroadcast("You have been freezon due to camping", m_ClientID);
+ 		} else {
+ 			m_pCharacter->Die(m_ClientID, WEAPON_GAME);
+		}
+ 		m_CampTick = -1;
+ 		m_SentCampMsg = false;
+ 		return 1;
+ 	}
+ 	return 0;
 }
