@@ -109,14 +109,15 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 	m_Visible = true;
 
 	m_Spree = 0;
-	m_HammerFreeze = false;
-	m_HammerForce = false;
-	m_GrenadeLauncher = false;
-	m_JetPack = false;
-	m_SpeedRunner = false;
-	m_RifleSpread = false;
-	m_Invisible = false;
-	m_TeamProtect = false;
+	m_HammerFreeze = g_Config.m_SvKillingSpreeKills == 0;
+	m_HammerForce = g_Config.m_SvKillingSpreeKills == 0;
+	m_GrenadeLauncher = g_Config.m_SvKillingSpreeKills == 0;
+	m_JetPack = g_Config.m_SvKillingSpreeKills == 0;
+	m_SpeedRunner = g_Config.m_SvKillingSpreeKills == 0;
+	m_RifleSpread = g_Config.m_SvKillingSpreeKills == 0;
+	m_Core.m_Fat = g_Config.m_SvKillingSpreeKills == 0;
+	m_Invisible = g_Config.m_SvKillingSpreeKills == 0;
+	m_TeamProtect = g_Config.m_SvKillingSpreeKills == 0;
 
 	return true;
 }
@@ -1261,47 +1262,47 @@ void CCharacter::AddSpree()
 		str_format(aBuf, sizeof(aBuf), "%s %s with %d kills!", Server()->ClientName(m_pPlayer->GetCID()), aaSpreeMsg[bigman], m_Spree);
 		GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
 
-		if(m_Spree == g_Config.m_SvKillingSpreeKills * 1) {
+		if(!m_HammerFreeze && m_Spree == g_Config.m_SvKillingSpreeKills * 1) {
 			m_HammerFreeze = true;
 			GameServer()->SendBroadcast("you got the killingspree award [IceHammer]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 2) {
+		else if(!m_HammerForce && m_Spree == g_Config.m_SvKillingSpreeKills * 2) {
 			m_HammerForce = true;
 			GameServer()->SendBroadcast("you got the killingspree award [BigHammer]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 3) {
+		else if(!m_GrenadeLauncher && m_Spree == g_Config.m_SvKillingSpreeKills * 3) {
 			m_GrenadeLauncher = true;
 			GameServer()->SendBroadcast("you got the killingspree award [Grenade]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 4) {
+		else if(!m_JetPack && m_Spree == g_Config.m_SvKillingSpreeKills * 4) {
 			m_JetPack = true;
 			GameServer()->SendBroadcast("you got the killingspree award [JetPack]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 5) {
+		else if(!m_SpeedRunner && m_Spree == g_Config.m_SvKillingSpreeKills * 5) {
 			m_SpeedRunner = true;
 			GameServer()->SendBroadcast("you got the killingspree award [MaxSpeed]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 6) {
+		else if(!m_RifleSpread && m_Spree == g_Config.m_SvKillingSpreeKills * 6) {
 			m_RifleSpread = true;
 			GameServer()->SendBroadcast("you got the killingspree award [Laser2x]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 7) {
+		else if(!m_Core.m_Fat && m_Spree == g_Config.m_SvKillingSpreeKills * 7) {
 			m_Core.m_Fat = true;
 			GameServer()->SendBroadcast("you got the killingspree award [Fat]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 8) {
+		else if(!m_TeamProtect && m_Spree == g_Config.m_SvKillingSpreeKills * 8) {
 			m_TeamProtect = true;
 			GameServer()->SendBroadcast("you got the last killingspree award [TeamProtection]", m_pPlayer->GetCID());
 		}
 
-		else if(m_Spree == g_Config.m_SvKillingSpreeKills * 9) {
+		else if(!m_Invisible && m_Spree == g_Config.m_SvKillingSpreeKills * 9) {
 			m_Invisible = true;
 			GameServer()->SendBroadcast("you got the killingspree award [Invisibility]", m_pPlayer->GetCID());
 		}
@@ -1318,7 +1319,7 @@ void CCharacter::EndSpree(int Killer)
 			GameServer()->CreateExplosion(m_Pos, m_pPlayer->GetCID(), WEAPON_RIFLE, true);
 		}
 
-		if(g_Config.m_SvKillingSpreePrint) {
+		if(g_Config.m_SvKillingSpreePrint && g_Config.m_SvKillingSpreeKills > 0) {
 			char aBuf[128];
 			if(Killer != m_pPlayer->GetCID()) {
 				str_format(aBuf, sizeof(aBuf), "%s %d-kills killing spree was ended by %s", Server()->ClientName(m_pPlayer->GetCID()), m_Spree, Server()->ClientName(Killer));
