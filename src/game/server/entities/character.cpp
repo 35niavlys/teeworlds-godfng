@@ -1113,9 +1113,9 @@ void CCharacter::TakeHammerHit(CCharacter* pFrom)
 
 	CPlayer* pPlayer = pFrom->GetPlayer();
 	if (pPlayer) {
-		m_Killer.m_KillerID = m_pPlayer->GetCID();
 		if(GameServer()->m_pController->IsTeamplay() && pPlayer->GetTeam() == m_pPlayer->GetTeam()) {
 			m_Killer.m_uiKillerHookTicks = 0;
+			m_Killer.m_KillerID = m_pPlayer->GetCID();
 			if (IsFrozen()) {
 				if (((float)m_Core.m_Freeze.m_Duration - (float)(Server()->Tick() - m_Core.m_Freeze.m_ActivationTick - 1) / (float)Server()->TickSpeed()) < 3.f) {
 					Unfreeze(pPlayer->GetCID());
@@ -1128,6 +1128,7 @@ void CCharacter::TakeHammerHit(CCharacter* pFrom)
 				++pPlayer->m_Stats.m_UnfreezingHammerHits;
 			}
 		} else if(pFrom->m_HammerFreeze && !IsFrozen()) {
+			m_Killer.m_KillerID = pPlayer->GetCID();
 			Freeze(g_Config.m_SvHitFreeze);
 		}
 	}
